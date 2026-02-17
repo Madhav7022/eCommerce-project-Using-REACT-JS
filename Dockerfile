@@ -1,39 +1,19 @@
-#########################################
-# eCommerce Project — Dockerfile
-# Built & Automated by: Madhav7022
-#########################################
-
-# ---------- Stage 1: Build with Maven ----------
-FROM maven:3.9.4-eclipse-temurin-17 AS build
-LABEL maintainer="Madhav7022"
+# ---------- Stage 1: Build React ----------
+FROM node:18 AS build
 
 WORKDIR /app
 
-# Copy pom.xml and download dependencies first (layer caching optimization)
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
+COPY package*.json ./
+RUN npm install
 
-# Copy source code
-COPY src ./src
+COPY . .
+RUN npm run build
 
-# Build WAR file
-RUN mvn clean package -DskipTests
+# ---------- Stage 2: Serve with Nginx ----------
+FROM nginx:alpine
 
+COPY --from=build /app/build /usr/share/nginx/html
 
-# ---------- Stage 2: Deploy to Tomcat ----------
-FROM tomcat:9.0-jdk17-temurin
-LABEL author="Madhav7022"
+EXPOSE 80
 
-WORKDIR /usr/local/tomcat
-
-# Remove default Tomcat applications
-RUN rm -rf webapps/*
-
-# Copy built WAR from build stage
-COPY --from=build /app/target/*.war webapps/ROOT.war
-
-# Expose application port
-EXPOSE 8084
-
-# Start Tomcat
-CMD ["catalina.sh", "run"]
+CMD ["nginx", "-g", "daemon off;"]
